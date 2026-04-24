@@ -1,15 +1,33 @@
 # br-validator
 
-Starter Spring Boot para validação de documentos brasileiros com Bean Validation (`jakarta.validation`).
+Starter Spring Boot para validação de documentos brasileiros e e-mail com Bean Validation (`jakarta.validation`).
 
-Com `br-validator`, você valida CPF e CNPJ de forma declarativa em DTOs, sem repetir regra de negócio em cada projeto.
+Com `br-validator`, você valida CPF, CNPJ e e-mail de forma declarativa em DTOs, sem repetir regra de negócio em cada projeto.
+
+## Sumário
+
+- [Principais funcionalidades](#principais-funcionalidades)
+- [Instalação](#instalação)
+- [Como usar](#como-usar)
+  - [Validação declarativa em DTO](#1-validação-declarativa-em-dto)
+  - [Parâmetros das annotations](#2-parâmetros-das-annotations)
+  - [Uso direto via service](#3-uso-direto-via-service)
+  - [Exemplo com controller](#4-exemplo-com-controller)
+  - [Exemplo de request](#5-exemplo-de-request)
+- [Matriz de compatibilidade](#matriz-de-compatibilidade)
+- [Tratamento de erro](#tratamento-de-erro)
+- [FAQ](#faq)
+- [Tecnologias](#tecnologias)
+- [Roadmap](#roadmap)
+- [Licença](#licença)
 
 ## Principais funcionalidades
 
 - Annotation `@ValidCpf` para validação declarativa.
 - Annotation `@ValidCnpj` para validação declarativa.
+- Annotation `@ValidEmail` para validação declarativa.
 - Validação automática com Bean Validation.
-- Serviços reutilizáveis para CPF e CNPJ.
+- Serviços reutilizáveis para CPF, CNPJ e e-mail.
 - Formatação de CPF e CNPJ.
 - Geração de CPF e CNPJ válidos para testes.
 - Auto-configuração Spring Boot para uso como dependência.
@@ -23,7 +41,7 @@ Adicione no `pom.xml` do seu projeto:
     <dependency>
         <groupId>io.github.andrelamego</groupId>
         <artifactId>br-validator</artifactId>
-        <version>1.1.0</version>
+        <version>1.2.0</version>
     </dependency>
 </dependencies>
 ```
@@ -37,6 +55,7 @@ package com.example.demo.dto;
 
 import io.github.andrelamego.brValidator.annotation.ValidCpf;
 import io.github.andrelamego.brValidator.annotation.ValidCnpj;
+import io.github.andrelamego.brValidator.annotation.ValidEmail;
 
 public class DocumentoRequest {
 
@@ -45,6 +64,16 @@ public class DocumentoRequest {
 
     @ValidCnpj(message = "CNPJ inválido", formatted = true, required = false)
     private String cnpj;
+
+    @ValidEmail(
+            message = "E-mail inválido",
+            required = true,
+            allowPlusAlias = true,
+            disposableAllowed = false,
+            allowedDomains = {"empresa.com"},
+            blockedDomains = {"bloqueado.com"}
+    )
+    private String email;
 
     public String getCpf() {
         return cpf;
@@ -61,10 +90,20 @@ public class DocumentoRequest {
     public void setCnpj(String cnpj) {
         this.cnpj = cnpj;
     }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
 }
 ```
 
-### 2) Parâmetros das annotations (`@ValidCpf` e `@ValidCnpj`)
+### 2) Parâmetros das annotations
+
+#### `@ValidCpf` e `@ValidCnpj`
 
 | Parâmetro | Tipo | Default | Descrição |
 |---|---|---|---|
@@ -74,11 +113,25 @@ public class DocumentoRequest {
 | `groups` | `Class<?>[]` | - | Bean Validation |
 | `payload` | `Payload[]` | - | Bean Validation |
 
+#### `@ValidEmail`
+
+| Parâmetro | Tipo | Default | Descrição |
+|---|---|---|---|
+| `message` | `String` | `Email inválido.` | Mensagem de erro |
+| `required` | `boolean` | `true` | Define se o campo é obrigatório |
+| `allowPlusAlias` | `boolean` | `true` | Aceita e-mails com alias `+` (ex: `nome+tag@dominio.com`) |
+| `disposableAllowed` | `boolean` | `true` | Aceita domínios de e-mail descartável |
+| `allowedDomains` | `String[]` | `{}` | Lista de domínios permitidos |
+| `blockedDomains` | `String[]` | `{}` | Lista de domínios bloqueados |
+| `groups` | `Class<?>[]` | - | Bean Validation |
+| `payload` | `Payload[]` | - | Bean Validation |
+
 ### 3) Uso direto via service
 
 ```java
 import io.github.andrelamego.brValidator.service.CpfValidationService;
 import io.github.andrelamego.brValidator.service.CnpjValidationService;
+import io.github.andrelamego.brValidator.service.EmailValidationService;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -86,18 +139,30 @@ public class DocumentoService {
 
     private final CpfValidationService cpfValidationService;
     private final CnpjValidationService cnpjValidationService;
+    private final EmailValidationService emailValidationService;
 
     public DocumentoService(
             CpfValidationService cpfValidationService,
-            CnpjValidationService cnpjValidationService
+            CnpjValidationService cnpjValidationService,
+            EmailValidationService emailValidationService
     ) {
         this.cpfValidationService = cpfValidationService;
         this.cnpjValidationService = cnpjValidationService;
+        this.emailValidationService = emailValidationService;
     }
 
     public void validar() {
         boolean cpfValido = cpfValidationService.isValid("529.982.247-25");
         boolean cnpjValido = cnpjValidationService.isValid("04.252.011/0001-10");
+        boolean emailValido = emailValidationService.isValid("usuario@empresa.com");
+
+        boolean emailRestritoValido = emailValidationService.isValid(
+                "usuario+tag@empresa.com",
+                true,
+                false,
+                new String[]{"empresa.com"},
+                new String[]{"bloqueado.com"}
+        );
 
         String cpfFormatado = cpfValidationService.formatar("52998224725");
         String cnpjFormatado = cnpjValidationService.formatar("04252011000110");
@@ -136,7 +201,8 @@ public class DocumentoController {
 ```json
 {
   "cpf": "529.982.247-25",
-  "cnpj": "04.252.011/0001-10"
+  "cnpj": "04.252.011/0001-10",
+  "email": "usuario@empresa.com"
 }
 ```
 
@@ -152,8 +218,8 @@ public class DocumentoController {
 
 ## Tratamento de erro
 
-As annotations (`@ValidCpf` e `@ValidCnpj`) retornam erro de validação via Bean Validation.
-Já os métodos `formatar(...)` lançam exceção quando o documento é inválido.
+As annotations (`@ValidCpf`, `@ValidCnpj` e `@ValidEmail`) retornam erro de validação via Bean Validation.
+Já os métodos `formatar(...)` de CPF/CNPJ lançam exceção quando o documento é inválido.
 
 ```java
 package com.example.demo.api;
@@ -190,11 +256,41 @@ public class ApiExceptionHandler {
 
 ## FAQ
 
-- **Aceita CPF/CNPJ com máscara?** Sim. Por padrão, `formatted = true`.
-- **Posso obrigar sem máscara?** Sim. Use `formatted = false` na annotation ou `isValid(documento, false)` no service.
-- **Campo pode ser opcional?** Sim. Use `required = false` na annotation.
-- **Documento nulo ou vazio é válido no service?** Não. O service retorna `false`.
-- **Quando ocorre exceção?** Em `formatar(...)`, quando CPF/CNPJ é inválido.
+#### Aceita CPF/CNPJ com máscara?
+
+Sim. Por padrão, `formatted = true`.
+
+#### Posso obrigar sem máscara?
+
+Sim. Use `formatted = false` na annotation ou `isValid(documento, false)` no service.
+
+#### Campo pode ser opcional?
+
+Sim. Use `required = false` nas annotations.
+
+#### E-mail com alias `+` é aceito?
+
+Sim, por padrão (`allowPlusAlias = true`).
+
+#### Posso bloquear e-mail descartável?
+
+Sim. Use `disposableAllowed = false`.
+
+#### Posso limitar domínios permitidos ou bloqueados?
+
+Sim. Use `allowedDomains` e `blockedDomains`.
+
+#### Documento nulo ou vazio é válido no service?
+
+Não. O service retorna `false`.
+
+#### E-mail nulo ou vazio é válido no service?
+
+Não. O service retorna `false`.
+
+#### Quando ocorre exceção?
+
+Em `formatar(...)`, quando CPF/CNPJ é inválido.
 
 ## Tecnologias
 
@@ -210,7 +306,6 @@ Melhorias previstas:
 
 - Validação de CEP
 - Validação de telefone
-- Validação de e-mail avançada
 - Publicação no Maven Central
 - Testes automatizados mais robustos
 - Suporte a múltiplos formatos de documento
