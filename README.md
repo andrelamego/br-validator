@@ -1,5 +1,11 @@
 # br-validator
 
+[![Versão](https://img.shields.io/badge/version-1.4.0-blue.svg)](CHANGELOG.md)
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.andrelamego/br-validator.svg)](https://search.maven.org/artifact/io.github.andrelamego/br-validator)
+[![Java](https://img.shields.io/badge/java-21-007396?logo=openjdk&logoColor=white)](#matriz-de-compatibilidade)
+[![Spring Boot](https://img.shields.io/badge/spring--boot-4.0.x-6DB33F?logo=springboot&logoColor=white)](#matriz-de-compatibilidade)
+[![Licença](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 Starter Spring Boot para validação de documentos brasileiros, e-mail, senha, CEP, telefone e data de nascimento com Bean Validation (`jakarta.validation`).
 
 Com `br-validator`, você valida CPF, CNPJ, e-mail, senha, CEP, telefone e data de nascimento de forma declarativa em DTOs, sem repetir regra de negócio em cada projeto.
